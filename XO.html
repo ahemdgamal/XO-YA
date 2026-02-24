@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XO Online Pro + Chat</title>
+
+<style>
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+  }
+
+  .setup-container {
+    text-align: center;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 30px;
+    border-radius: 20px;
+    backdrop-filter: blur(10px);
+    width: 300px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .container {
+    display: flex;
+    gap: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(15px);
+    padding: 25px;
+    border-radius: 25px;
+    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .game { text-align: center; }
+  #board {
+    display: grid;
+    grid-template-columns: repeat(3, 100px);
+    gap: 10px;
+    margin-top: 15px;
+  }
+  .cell {
+    width: 100px;
+    height: 100px;
+    background: #1e293b;
+    font-size: 45px;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: 0.3s;
+    border: 1px solid #334155;
+  }
+  .cell:hover { background: #334155; transform: scale(1.05); }
+
+  .chat-box {
+    width: 300px;
+    background: rgba(15, 23, 42, 0.9);
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #334155;
+    height: 400px;
+  }
+  #messages {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .msg {
+    padding: 8px 12px;
+    border-radius: 10px;
+    max-width: 80%;
+    font-size: 14px;
+  }
+  .msg-own { background: #22c55e; align-self: flex-start; }
+  .msg-other { background: #3b82f6; align-self: flex-end; }
+  
+  .chat-input-area { display: flex; padding: 10px; gap: 5px; }
+  input, button { padding: 10px; border: none; border-radius: 8px; outline: none; }
+  input { background: #1e293b; color: white; flex: 1; border: 1px solid #334155; }
+  button { background: #22c55e; color: white; cursor: pointer; font-weight: bold; }
+
+  .room-info { margin-bottom: 10px; color: #94a3b8; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div id="setup" class="setup-container">
+  <h2 style="color:#22c55e">🎮 XO Online</h2>
+  <input type="text" id="username" placeholder="اسمك المستعار" style="width:90%; margin-bottom:10px;">
+  <input type="text" id="roomInput" placeholder="اسم الغرفة" style="width:90%; margin-bottom:10px;">
+  <button onclick="createRoom()" style="width:100%; margin-top:10px;">إنشاء غرفة</button>
+  <button onclick="joinRoom()" style="width:100%; margin-top:10px; background:#3b82f6">انضمام لغرفة</button>
+</div>
+
+<div class="container" style="display:none" id="gameUI">
+  <div class="game">
+    <div class="room-info" id="roomDisplay"></div>
+    <h2 id="status">انتظار الخصم...</h2>
+    <div id="board"></div>
+    <button onclick="location.reload()" style="margin-top:20px; background:#ef4444; width:100%">خروج</button>
+  </div>
+
+  <div class="chat-box">
+    <div style="padding:10px; text-align:center; border-bottom:1px solid #334155">💬 المحادثة</div>
+    <div id="messages"></div>
+    <div class="chat-input-area">
+      <input type="text" id="msgInput" placeholder="اكتب...">
+      <button onclick="sendMsg()">إرسال</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, set, update, onValue, push, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyB2m_lxcrNrh0sKBxnLxMcXsRSTJ2UXJho",
+  authDomain: "xo-game-af8b9.firebaseapp.com",
+  projectId: "xo-game-af8b9",
+  storageBucket: "xo-game-af8b9.firebasestorage.app",
+  messagingSenderId: "244059743073",
+  appId: "1:244059743073:web:03866f61fe0193af1f5b20",
+  measurementId: "G-63ELBNX22C",
+  databaseURL: "https://xo-game-af8b9-default-rtdb.firebaseio.com"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let roomName = "", player = "", gameRef = null, chatRef = null, username = "";
+
+// إنشاء الخلايا
+for(let i=0; i<9; i++) {
+  const cell = document.createElement("div");
+  cell.classList.add("cell");
+  cell.id = "cell-" + i;
+  cell.onclick = () => window.move(i);
+  document.getElementById("board").appendChild(cell);
+}
+
+window.createRoom = async function() {
+  username = document.getElementById("username").value.trim();
+  roomName = document.getElementById("roomInput").value.trim();
+  if(!username || !roomName) return alert("اكمل البيانات");
+
+  gameRef = ref(db, "rooms/" + roomName);
+  const snap = await get(gameRef);
+  if(snap.exists()) return alert("الغرفة موجودة بالفعل!");
+
+  await set(gameRef, { 
+    board: ["","","","","","","","",""], 
+    turn: "X", 
+    players: 1, 
+    winner: "" 
+  });
+  
+  player = "X";
+  initGame();
+}
+
+window.joinRoom = async function() {
+  username = document.getElementById("username").value.trim();
+  roomName = document.getElementById("roomInput").value.trim();
+  if(!username || !roomName) return alert("اكمل البيانات");
+
+  gameRef = ref(db, "rooms/" + roomName);
+  const snap = await get(gameRef);
+  if(snap.exists()) {
+    const data = snap.val();
+    if(data.players < 2) {
+      await update(gameRef, { players: 2 });
+      player = "O";
+      initGame();
+    } else {
+      alert("الغرفة ممتلئة!");
+    }
+  } else {
+    alert("الغرفة غير موجودة!");
+  }
+}
+
+function initGame() {
+  document.getElementById("setup").style.display = "none";
+  document.getElementById("gameUI").style.display = "flex";
+  document.getElementById("roomDisplay").innerText = "الغرفة: " + roomName;
+  chatRef = ref(db, "chats/" + roomName);
+
+  onValue(gameRef, (s) => {
+    const d = s.val();
+    if(!d) return;
+    d.board.forEach((v, i) => {
+        const c = document.getElementById("cell-"+i);
+        c.innerText = v;
+        c.style.color = v === "X" ? "#3b82f6" : "#ef4444";
+    });
+    if(d.winner) document.getElementById("status").innerText = "🏆 الفائز: " + d.winner;
+    else if(d.players < 2) document.getElementById("status").innerText = "بانتظار الخصم...";
+    else document.getElementById("status").innerText = d.turn === player ? "🟢 دورك الآن" : "⌛ دور الخصم";
+  });
+
+  onValue(chatRef, (s) => {
+    const msgDiv = document.getElementById("messages");
+    msgDiv.innerHTML = "";
+    s.forEach(c => {
+      const m = c.val();
+      const div = document.createElement("div");
+      div.className = `msg ${m.user === username ? 'msg-own' : 'msg-other'}`;
+      div.innerHTML = `<b>${m.user}:</b> ${m.text}`;
+      msgDiv.appendChild(div);
+    });
+    msgDiv.scrollTop = msgDiv.scrollHeight;
+  });
+}
+
+window.move = async function(i) {
+  const s = await get(gameRef);
+  const d = s.val();
+  if(!d || d.players < 2 || d.turn !== player || d.board[i] !== "" || d.winner) return;
+
+  d.board[i] = player;
+  d.turn = player === "X" ? "O" : "X";
+  
+  const win = checkWinner(d.board);
+  if(win) d.winner = win;
+  else if(!d.board.includes("")) d.winner = "تعادل";
+
+  await update(gameRef, d);
+}
+
+function checkWinner(b) {
+  const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  for(let l of lines) if(b[l[0]] && b[l[0]]===b[l[1]] && b[l[0]]===b[l[2]]) return b[l[0]];
+  return null;
+}
+
+window.sendMsg = function() {
+  const input = document.getElementById("msgInput");
+  if(!input.value.trim()) return;
+  push(chatRef, { user: username, text: input.value });
+  input.value = "";
+}
+
+document.getElementById("msgInput").addEventListener("keypress", (e) => {
+  if(e.key === "Enter") sendMsg();
+});
+</script>
+</body>
+</html>
