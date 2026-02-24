@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XO Online Pro + Chat</title>
+
+<style>
+  /* إعدادات الخلفية العامة */
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* واجهة الدخول */
+  .setup-container {
+    text-align: center;
+    background: rgba(255, 255, 255, 0.07);
+    padding: 40px;
+    border-radius: 30px;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+    width: 320px;
+  }
+
+  /* الحاوية الرئيسية للعبة والشات */
+  .container {
+    display: flex;
+    gap: 30px;
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(15px);
+    padding: 30px;
+    border-radius: 35px;
+    box-shadow: 0 0 80px rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    flex-wrap: wrap;
+    justify-content: center;
+    animation: fadeIn 0.8s ease-out;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* منطقة اللعبة */
+  .game { text-align: center; }
+  #status {
+    font-size: 22px;
+    text-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+    margin-bottom: 20px;
+  }
+
+  #board {
+    display: grid;
+    grid-template-columns: repeat(3, 110px);
+    gap: 15px;
+  }
+
+  .cell {
+    width: 110px;
+    height: 110px;
+    background: rgba(30, 41, 59, 0.7);
+    font-size: 50px;
+    font-weight: 900;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 0 15px rgba(0,0,0,0.2);
+  }
+
+  .cell:hover {
+    background: #334155;
+    transform: scale(1.05) translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+    border-color: #22c55e;
+  }
+
+  /* منطقة الشات - خلفية مثيرة وجذابة */
+  .chat-box {
+    width: 320px;
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%);
+    border-radius: 25px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    height: 450px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* خلفية داخلية للشات (تأثير ضوئي) */
+  .chat-box::before {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%; width: 200%; height: 200%;
+    background: radial-gradient(circle, rgba(34, 197, 94, 0.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .chat-header {
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    font-size: 14px;
+    color: #22c55e;
+  }
+
+  #messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: #334155 transparent;
+  }
+
+  .msg {
+    padding: 10px 16px;
+    border-radius: 18px;
+    max-width: 85%;
+    font-size: 14px;
+    line-height: 1.5;
+    position: relative;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  }
+
+  .msg-own { 
+    background: linear-gradient(135deg, #22c55e, #16a34a); 
+    align-self: flex-start; 
+    border-bottom-right-radius: 4px;
+  }
+
+  .msg-other { 
+    background: linear-gradient(135deg, #3b82f6, #2563eb); 
+    align-self: flex-end; 
+    border-bottom-left-radius: 4px;
+  }
+
+  .chat-input-area {
+    display: flex;
+    padding: 15px;
+    gap: 10px;
+    background: rgba(0,0,0,0.2);
+  }
+
+  input, button {
+    padding: 12px;
+    border: none;
+    border-radius: 12px;
+    outline: none;
+    transition: 0.3s;
+  }
+
+  input { 
+    background: rgba(255, 255, 255, 0.05); 
+    color: white; 
+    flex: 1; 
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  input:focus { border-color: #22c55e; background: rgba(255, 255, 255, 0.1); }
+
+  button { 
+    background: #22c55e; 
+    color: white; 
+    cursor: pointer; 
+    font-weight: bold;
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+  }
+  button:hover { transform: scale(1.05); filter: brightness(1.1); }
+
+  .room-info { 
+    margin-bottom: 15px; 
+    color: #94a3b8; 
+    font-size: 12px; 
+    background: rgba(255, 255, 255, 0.05);
+    padding: 5px 15px;
+    border-radius: 20px;
+    display: inline-block;
+  }
+</style>
+</head>
+<body>
+
+<div id="setup" class="setup-container">
+  <h2 style="color:#22c55e; margin-bottom:25px;">🎮 XO ONLINE</h2>
+  <input type="text" id="username" placeholder="اسمك المستعار" style="width:90%; margin-bottom:10px;">
+  <input type="text" id="roomInput" placeholder="اسم الغرفة" style="width:90%; margin-bottom:10px;">
+  <button onclick="createRoom()" style="width:100%; margin-top:15px; background:#22c55e">إنشاء غرفة</button>
+  <button onclick="joinRoom()" style="width:100%; margin-top:10px; background:#3b82f6">انضمام لغرفة</button>
+</div>
+
+<div class="container" style="display:none" id="gameUI">
+  <div class="game">
+    <div class="room-info" id="roomDisplay"></div>
+    <h2 id="status">انتظار الخصم...</h2>
+    <div id="board"></div>
+    <button onclick="location.reload()" style="margin-top:25px; background:#ef4444; width:100%">خروج نهائي</button>
+  </div>
+
+  <div class="chat-box">
+    <div class="chat-header">💬 المحادثة المباشرة</div>
+    <div id="messages"></div>
+    <div class="chat-input-area">
+      <input type="text" id="msgInput" placeholder="اكتب رسالة...">
+      <button onclick="sendMsg()">إرسال</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, set, update, onValue, push, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+// --- بيانات Firebase (تبقى كما هي) ---
+const firebaseConfig = {
+  apiKey: "AIzaSyB2m_lxcrNrh0sKBxnLxMcXsRSTJ2UXJho",
+  authDomain: "xo-game-af8b9.firebaseapp.com",
+  projectId: "xo-game-af8b9",
+  storageBucket: "xo-game-af8b9.firebasestorage.app",
+  messagingSenderId: "244059743073",
+  appId: "1:244059743073:web:03866f61fe0193af1f5b20",
+  measurementId: "G-63ELBNX22C",
+  databaseURL: "https://xo-game-af8b9-default-rtdb.firebaseio.com" // أضفت الرابط هنا لضمان العمل
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let roomName = "", player = "", gameRef = null, chatRef = null, username = "";
+
+// إنشاء اللوحة
+for(let i=0; i<9; i++) {
+  const cell = document.createElement("div");
+  cell.classList.add("cell");
+  cell.id = "cell-" + i;
+  cell.onclick = () => move(i);
+  document.getElementById("board").appendChild(cell);
+}
+
+window.createRoom = async function() {
+  username = document.getElementById("username").value.trim();
+  roomName = document.getElementById("roomInput").value.trim();
+  if(!username || !roomName) return alert("اكمل البيانات");
+  gameRef = ref(db, "rooms/" + roomName);
+  const snap = await get(gameRef);
+  if(snap.exists()) return alert("الغرفة موجودة!");
+  await set(gameRef, { board: ["","","","","","","","",""], turn: "X", players: 1, winner: "" });
+  player = "X";
+  initGame();
+}
+
+window.joinRoom = async function() {
+  username = document.getElementById("username").value.trim();
+  roomName = document.getElementById("roomInput").value.trim();
+  if(!username || !roomName) return alert("اكمل البيانات");
+  gameRef = ref(db, "rooms/" + roomName);
+  const snap = await get(gameRef);
+  if(snap.exists() && snap.val().players < 2) {
+    await update(gameRef, { players: 2 });
+    player = "O";
+    initGame();
+  } else alert("الغرفة غير متاحة");
+}
+
+function initGame() {
+  document.getElementById("setup").style.display = "none";
+  document.getElementById("gameUI").style.display = "flex";
+  document.getElementById("roomDisplay").innerText = "الغرفة: " + roomName;
+  chatRef = ref(db, "chats/" + roomName);
+
+  onValue(gameRef, (s) => {
+    const d = s.val();
+    if(!d) return;
+    d.board.forEach((v, i) => {
+      const el = document.getElementById("cell-"+i);
+      el.innerText = v;
+      el.style.color = (v === 'X') ? '#3b82f6' : '#ef4444';
+    });
+    if(d.winner) document.getElementById("status").innerText = "🏆 الفائز: " + d.winner;
+    else document.getElementById("status").innerText = d.turn === player ? "🟢 دورك الآن" : "⌛ دور الخصم";
+  });
+
+  onValue(chatRef, (s) => {
+    const msgDiv = document.getElementById("messages");
+    msgDiv.innerHTML = "";
+    s.forEach(c => {
+      const m = c.val();
+      const div = document.createElement("div");
+      div.className = `msg ${m.user === username ? 'msg-own' : 'msg-other'}`;
+      div.innerHTML = `<b>${m.user}:</b> ${m.text}`;
+      msgDiv.appendChild(div);
+    });
+    msgDiv.scrollTop = msgDiv.scrollHeight;
+  });
+}
+
+window.move = async function(i) {
+  const s = await get(gameRef);
+  const d = s.val();
+  if(d.turn !== player || d.board[i] !== "" || d.winner) return;
+  d.board[i] = player;
+  d.turn = player === "X" ? "O" : "X";
+  const win = checkWinner(d.board);
+  if(win) d.winner = win;
+  await update(gameRef, d);
+}
+
+function checkWinner(b) {
+  const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  for(let l of lines) if(b[l[0]] && b[l[0]]===b[l[1]] && b[l[0]]===b[l[2]]) return b[l[0]];
+  return b.includes("") ? null : "تعادل";
+}
+
+window.sendMsg = function() {
+  const input = document.getElementById("msgInput");
+  if(!input.value.trim()) return;
+  push(chatRef, { user: username, text: input.value });
+  input.value = "";
+}
+
+document.getElementById("msgInput").addEventListener("keypress", (e) => {
+  if(e.key === "Enter") sendMsg();
+});
+</script>
+</body>
+</html>
